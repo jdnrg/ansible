@@ -188,11 +188,13 @@ def get_jobs(module):
         except jenkins.NotFoundException:
             pass
         else:
+            #raise Exception(job_info)
             jobs.append({
                 "name": job_info["name"],
                 "fullname": job_info["fullName"],
                 "url": job_info["url"],
-                "color": job_info["color"]
+                "color": job_info["color"],
+                "config" : jenkins_conn.get_job_config(module.params.get("name"))
             })
 
     else:
@@ -218,6 +220,7 @@ def get_jobs(module):
 
 
 def main():
+    #raise Exception("test")
     module = AnsibleModule(
         argument_spec=dict(
             name=dict(),

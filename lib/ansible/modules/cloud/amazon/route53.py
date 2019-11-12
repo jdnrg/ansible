@@ -403,6 +403,8 @@ class TimeoutError(Exception):
 
 def get_zone_id_by_name(conn, module, zone_name, want_private, want_vpc_id):
     """Finds a zone by name or zone_id"""
+    import pdb
+    pdb.set_trace()
     for zone in invoke_with_throttling_retries(conn.get_zones):
         # only save this zone id if the private status of the zone matches
         # the private_zone_in boolean specified in the params
