@@ -358,7 +358,18 @@ class ConsoleCLI(CLI, cmd.Cmd):
         """Exits from the console"""
         sys.stdout.write('\n')
         return -1
-
+    
+    def do_pdb(self, args):
+        """Starts the debugger"""
+        import pdb
+        pdb.set_trace()
+        display.display('after pdb')
+        return 0
+    
+    def do_clear_cache(self, args):
+        """clears the file cache"""
+        self.loader._FILE_CACHE= {} # delete it
+                                                                 
     do_EOF = do_exit
 
     def helpdefault(self, module_name):
