@@ -396,7 +396,9 @@ class ActionBase(with_metaclass(ABCMeta, object)):
 
     def _remove_tmp_path(self, tmp_path):
         '''Remove a temporary path we created. '''
-
+        print("Going to remove temp",tmp_path)
+        return
+        raise Exception("remove templ")
         if tmp_path is None and self._connection._shell.tmpdir:
             tmp_path = self._connection._shell.tmpdir
 

@@ -155,37 +155,34 @@ def _ansiballz_main():
     import runpy
     import shutil
     import tempfile
-    import zipfile
 
     if sys.version_info < (3,):
         PY3 = False
     else:
         PY3 = True
 
-    ZIPDATA = """%(zipdata)s"""
-
     # Note: temp_path isn't needed once we switch to zipimport
-    def invoke_module(modlib_path, temp_path, json_params):
+    def invoke_module( temp_path, json_params):
         # When installed via setuptools (including python setup.py install),
         # ansible may be installed with an easy-install.pth file.  That file
         # may load the system-wide install of ansible rather than the one in
         # the module.  sitecustomize is the only way to override that setting.
-        z = zipfile.ZipFile(modlib_path, mode='a')
+        # z = zipfile.ZipFile(modlib_path, mode='a')
 
-        # py3: modlib_path will be text, py2: it's bytes.  Need bytes at the end
-        sitecustomize = u'import sys\\nsys.path.insert(0,"%%s")\\n' %%  modlib_path
-        sitecustomize = sitecustomize.encode('utf-8')
-        # Use a ZipInfo to work around zipfile limitation on hosts with
-        # clocks set to a pre-1980 year (for instance, Raspberry Pi)
-        zinfo = zipfile.ZipInfo()
-        zinfo.filename = 'sitecustomize.py'
-        zinfo.date_time = ( %(year)i, %(month)i, %(day)i, %(hour)i, %(minute)i, %(second)i)
-        z.writestr(zinfo, sitecustomize)
-        z.close()
+        # # py3: modlib_path will be text, py2: it's bytes.  Need bytes at the end
+        # sitecustomize = u'import sys\\nsys.path.insert(0,"%%s")\\n' %%  modlib_path
+        # sitecustomize = sitecustomize.encode('utf-8')
+        # # Use a ZipInfo to work around zipfile limitation on hosts with
+        # # clocks set to a pre-1980 year (for instance, Raspberry Pi)
+        # zinfo = zipfile.ZipInfo()
+        # zinfo.filename = 'sitecustomize.py'
+        # zinfo.date_time = ( %(year)i, %(month)i, %(day)i, %(hour)i, %(minute)i, %(second)i)
+        # z.writestr(zinfo, sitecustomize)
+        # z.close()
 
-        # Put the zipped up module_utils we got from the controller first in the python path so that we
-        # can monkeypatch the right basic
-        sys.path.insert(0, modlib_path)
+        # # Put the zipped up module_utils we got from the controller first in the python path so that we
+        # # can monkeypatch the right basic
+        # sys.path.insert(0, modlib_path)
 
         # Monkeypatch the parameters into basic
         from ansible.module_utils import basic
@@ -198,7 +195,7 @@ def _ansiballz_main():
         print('{"msg": "New-style module did not handle its own exit", "failed": true}')
         sys.exit(1)
 
-    def debug(command, zipped_mod, json_params):
+    def debug(command, json_params):
         # The code here normally doesn't run.  It's only used for debugging on the
         # remote machine.
         #
@@ -244,26 +241,26 @@ def _ansiballz_main():
             # print the path to the code.  This is an easy way for people to look
             # at the code on the remote machine for debugging it in that
             # environment
-            z = zipfile.ZipFile(zipped_mod)
-            for filename in z.namelist():
-                if filename.startswith('/'):
-                    raise Exception('Something wrong with this module zip file: should not contain absolute paths')
+            # z = zipfile.ZipFile(zipped_mod)
+            # for filename in z.namelist():
+            #     if filename.startswith('/'):
+            #         raise Exception('Something wrong with this module zip file: should not contain absolute paths')
 
-                dest_filename = os.path.join(basedir, filename)
-                if dest_filename.endswith(os.path.sep) and not os.path.exists(dest_filename):
-                    os.makedirs(dest_filename)
-                else:
-                    directory = os.path.dirname(dest_filename)
-                    if not os.path.exists(directory):
-                        os.makedirs(directory)
-                    f = open(dest_filename, 'wb')
-                    f.write(z.read(filename))
-                    f.close()
+            #     dest_filename = os.path.join(basedir, filename)
+            #     if dest_filename.endswith(os.path.sep) and not os.path.exists(dest_filename):
+            #         os.makedirs(dest_filename)
+            #     else:
+            #         directory = os.path.dirname(dest_filename)
+            #         if not os.path.exists(directory):
+            #             os.makedirs(directory)
+            #         f = open(dest_filename, 'wb')
+            #         f.write(z.read(filename))
+            #         f.close()
 
-            # write the args file
-            f = open(args_path, 'wb')
-            f.write(json_params)
-            f.close()
+            # # write the args file
+            # f = open(args_path, 'wb')
+            # f.write(json_params)
+            # f.close()
 
             print('Module expanded into:')
             print('%%s' %% basedir)
@@ -313,15 +310,11 @@ def _ansiballz_main():
         # (this helps ansible-test produce coverage stats)
         temp_path = tempfile.mkdtemp(prefix='ansible_%(ansible_module)s_payload_')
 
-        zipped_mod = os.path.join(temp_path, 'ansible_%(ansible_module)s_payload.zip')
-        with open(zipped_mod, 'wb') as modlib:
-            modlib.write(base64.b64decode(ZIPDATA))
-
         if len(sys.argv) == 2:
-            exitcode = debug(sys.argv[1], zipped_mod, ANSIBALLZ_PARAMS)
+            exitcode = debug(sys.argv[1], ANSIBALLZ_PARAMS)
         else:
             # Note: temp_path isn't needed once we switch to zipimport
-            invoke_module(zipped_mod, temp_path, ANSIBALLZ_PARAMS)
+            invoke_module(temp_path, ANSIBALLZ_PARAMS)
     finally:
         try:
             shutil.rmtree(temp_path)
@@ -1031,105 +1024,106 @@ def _find_module_utils(module_name, b_module_data, module_path, module_args, tas
             remote_module_fqn = 'ansible.modules.%s' % module_name
 
         lookup_path = os.path.join(C.DEFAULT_LOCAL_TMP, 'ansiballz_cache')
+        #raise Exception(lookup_path)
         cached_module_filename = os.path.join(lookup_path, "%s-%s" % (module_name, module_compression))
-
-        zipdata = None
+        print(cached_module_filename)
+#        zipdata = None
         # Optimization -- don't lock if the module has already been cached
-        if os.path.exists(cached_module_filename):
-            display.debug('ANSIBALLZ: using cached module: %s' % cached_module_filename)
-            with open(cached_module_filename, 'rb') as module_data:
-                zipdata = module_data.read()
-        else:
-            if module_name in action_write_locks.action_write_locks:
-                display.debug('ANSIBALLZ: Using lock for %s' % module_name)
-                lock = action_write_locks.action_write_locks[module_name]
-            else:
-                # If the action plugin directly invokes the module (instead of
-                # going through a strategy) then we don't have a cross-process
-                # Lock specifically for this module.  Use the "unexpected
-                # module" lock instead
-                display.debug('ANSIBALLZ: Using generic lock for %s' % module_name)
-                lock = action_write_locks.action_write_locks[None]
+        # if os.path.exists(cached_module_filename):
+        #     display.debug('ANSIBALLZ: using cached module: %s' % cached_module_filename)
+        #     with open(cached_module_filename, 'rb') as module_data:
+        #         zipdata = module_data.read()
+        # else:
+        #     if module_name in action_write_locks.action_write_locks:
+        #         display.debug('ANSIBALLZ: Using lock for %s' % module_name)
+        #         lock = action_write_locks.action_write_locks[module_name]
+        #     else:
+        #         # If the action plugin directly invokes the module (instead of
+        #         # going through a strategy) then we don't have a cross-process
+        #         # Lock specifically for this module.  Use the "unexpected
+        #         # module" lock instead
+        #         display.debug('ANSIBALLZ: Using generic lock for %s' % module_name)
+        #         lock = action_write_locks.action_write_locks[None]
 
-            display.debug('ANSIBALLZ: Acquiring lock')
-            with lock:
-                display.debug('ANSIBALLZ: Lock acquired: %s' % id(lock))
-                # Check that no other process has created this while we were
-                # waiting for the lock
-                if not os.path.exists(cached_module_filename):
-                    display.debug('ANSIBALLZ: Creating module')
-                    # Create the module zip data
-                    zipoutput = BytesIO()
-                    zf = zipfile.ZipFile(zipoutput, mode='w', compression=compression_method)
+        #     display.debug('ANSIBALLZ: Acquiring lock')
+        #     with lock:
+        #         display.debug('ANSIBALLZ: Lock acquired: %s' % id(lock))
+        #         # Check that no other process has created this while we were
+        #         # waiting for the lock
+        #         if not os.path.exists(cached_module_filename):
+        #             display.debug('ANSIBALLZ: Creating module')
+        #             # Create the module zip data
+        #             zipoutput = BytesIO()
+        #             zf = zipfile.ZipFile(zipoutput, mode='w', compression=compression_method)
 
-                    # py_module_cache maps python module names to a tuple of the code in the module
-                    # and the pathname to the module.  See the recursive_finder() documentation for
-                    # more info.
-                    # Here we pre-load it with modules which we create without bothering to
-                    # read from actual files (In some cases, these need to differ from what ansible
-                    # ships because they're namespace packages in the module)
-                    py_module_cache = {
-                        ('ansible', '__init__',): (
-                            b'from pkgutil import extend_path\n'
-                            b'__path__=extend_path(__path__,__name__)\n'
-                            b'__version__="' + to_bytes(__version__) +
-                            b'"\n__author__="' + to_bytes(__author__) + b'"\n',
-                            'ansible/__init__.py'),
-                        ('ansible', 'module_utils', '__init__',): (
-                            b'from pkgutil import extend_path\n'
-                            b'__path__=extend_path(__path__,__name__)\n',
-                            'ansible/module_utils/__init__.py')}
+        #             # py_module_cache maps python module names to a tuple of the code in the module
+        #             # and the pathname to the module.  See the recursive_finder() documentation for
+        #             # more info.
+        #             # Here we pre-load it with modules which we create without bothering to
+        #             # read from actual files (In some cases, these need to differ from what ansible
+        #             # ships because they're namespace packages in the module)
+        #             py_module_cache = {
+        #                 ('ansible', '__init__',): (
+        #                     b'from pkgutil import extend_path\n'
+        #                     b'__path__=extend_path(__path__,__name__)\n'
+        #                     b'__version__="' + to_bytes(__version__) +
+        #                     b'"\n__author__="' + to_bytes(__author__) + b'"\n',
+        #                     'ansible/__init__.py'),
+        #                 ('ansible', 'module_utils', '__init__',): (
+        #                     b'from pkgutil import extend_path\n'
+        #                     b'__path__=extend_path(__path__,__name__)\n',
+        #                     'ansible/module_utils/__init__.py')}
 
-                    for (py_module_name, (file_data, filename)) in py_module_cache.items():
-                        zf.writestr(filename, file_data)
-                        # py_module_names keeps track of which modules we've already scanned for
-                        # module_util dependencies
-                        py_module_names.add(py_module_name)
+        #             for (py_module_name, (file_data, filename)) in py_module_cache.items():
+        #                 zf.writestr(filename, file_data)
+        #                 # py_module_names keeps track of which modules we've already scanned for
+        #                 # module_util dependencies
+        #                 py_module_names.add(py_module_name)
 
-                    # Returning the ast tree is a temporary hack.  We need to know if the module has
-                    # a main() function or not as we are deprecating new-style modules without
-                    # main().  Because parsing the ast is expensive, return it from recursive_finder
-                    # instead of reparsing.  Once the deprecation is over and we remove that code,
-                    # also remove returning of the ast tree.
-                    recursive_finder(module_name, remote_module_fqn, b_module_data, py_module_names,
-                                     py_module_cache, zf)
+        #             # Returning the ast tree is a temporary hack.  We need to know if the module has
+        #             # a main() function or not as we are deprecating new-style modules without
+        #             # main().  Because parsing the ast is expensive, return it from recursive_finder
+        #             # instead of reparsing.  Once the deprecation is over and we remove that code,
+        #             # also remove returning of the ast tree.
+        #             recursive_finder(module_name, remote_module_fqn, b_module_data, py_module_names,
+        #                              py_module_cache, zf)
 
-                    display.debug('ANSIBALLZ: Writing module into payload')
-                    _add_module_to_zip(zf, remote_module_fqn, b_module_data)
+        #             display.debug('ANSIBALLZ: Writing module into payload')
+        #             _add_module_to_zip(zf, remote_module_fqn, b_module_data)
 
-                    zf.close()
-                    zipdata = base64.b64encode(zipoutput.getvalue())
+        #             zf.close()
+        #             zipdata = base64.b64encode(zipoutput.getvalue())
 
-                    # Write the assembled module to a temp file (write to temp
-                    # so that no one looking for the file reads a partially
-                    # written file)
-                    if not os.path.exists(lookup_path):
-                        # Note -- if we have a global function to setup, that would
-                        # be a better place to run this
-                        os.makedirs(lookup_path)
-                    display.debug('ANSIBALLZ: Writing module')
-                    with open(cached_module_filename + '-part', 'wb') as f:
-                        f.write(zipdata)
+        #             # Write the assembled module to a temp file (write to temp
+        #             # so that no one looking for the file reads a partially
+        #             # written file)
+        #             if not os.path.exists(lookup_path):
+        #                 # Note -- if we have a global function to setup, that would
+        #                 # be a better place to run this
+        #                 os.makedirs(lookup_path)
+        #             display.debug('ANSIBALLZ: Writing module')
+        #             with open(cached_module_filename + '-part', 'wb') as f:
+        #                 f.write(zipdata)
 
-                    # Rename the file into its final position in the cache so
-                    # future users of this module can read it off the
-                    # filesystem instead of constructing from scratch.
-                    display.debug('ANSIBALLZ: Renaming module')
-                    os.rename(cached_module_filename + '-part', cached_module_filename)
-                    display.debug('ANSIBALLZ: Done creating module')
+        #             # Rename the file into its final position in the cache so
+        #             # future users of this module can read it off the
+        #             # filesystem instead of constructing from scratch.
+        #             display.debug('ANSIBALLZ: Renaming module')
+        #             os.rename(cached_module_filename + '-part', cached_module_filename)
+        #             display.debug('ANSIBALLZ: Done creating module')
 
-            if zipdata is None:
-                display.debug('ANSIBALLZ: Reading module after lock')
-                # Another process wrote the file while we were waiting for
-                # the write lock.  Go ahead and read the data from disk
-                # instead of re-creating it.
-                try:
-                    with open(cached_module_filename, 'rb') as f:
-                        zipdata = f.read()
-                except IOError:
-                    raise AnsibleError('A different worker process failed to create module file. '
-                                       'Look at traceback for that process for debugging information.')
-        zipdata = to_text(zipdata, errors='surrogate_or_strict')
+        #     if zipdata is None:
+        #         display.debug('ANSIBALLZ: Reading module after lock')
+        #         # Another process wrote the file while we were waiting for
+        #         # the write lock.  Go ahead and read the data from disk
+        #         # instead of re-creating it.
+        #         try:
+        #             with open(cached_module_filename, 'rb') as f:
+        #                 zipdata = f.read()
+        #         except IOError:
+        #             raise AnsibleError('A different worker process failed to create module file. '
+        #                                'Look at traceback for that process for debugging information.')
+        # zipdata = to_text(zipdata, errors='surrogate_or_strict')
 
         shebang, interpreter = _get_shebang(u'/usr/bin/python', task_vars, templar)
         if shebang is None:
@@ -1169,7 +1163,7 @@ def _find_module_utils(module_name, b_module_data, module_path, module_args, tas
 
         now = datetime.datetime.utcnow()
         output.write(to_bytes(ACTIVE_ANSIBALLZ_TEMPLATE % dict(
-            zipdata=zipdata,
+#            zipdata=zipdata,
             ansible_module=module_name,
             module_fqn=remote_module_fqn,
             params=python_repred_params,
