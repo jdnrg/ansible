@@ -31,7 +31,8 @@ from ansible.release import __version__
 from ansible.utils.display import Display
 from ansible.utils.unsafe_proxy import wrap_var, AnsibleUnsafeText
 from ansible.vars.clean import remove_internal_keys
-
+import pprint
+import pdb
 display = Display()
 
 
@@ -111,7 +112,7 @@ class ActionBase(with_metaclass(ABCMeta, object)):
                 raise AnsibleActionFail('Invalid options for %s: %s' % (self._task.action, ','.join(list(bad_opts))))
 
         if self._connection._shell.tmpdir is None and self._early_needs_tmp_path():
-            self._make_tmp_path()
+            self._make_tmp_path(self._task.name)
 
         return result
 
@@ -327,16 +328,16 @@ class ActionBase(with_metaclass(ABCMeta, object)):
         become_user = self.get_become_option('become_user')
         return bool(become_user and become_user not in admin_users + [remote_user])
 
-    def _make_tmp_path(self, remote_user=None):
+    def _make_tmp_path(self, name="", remote_user=None):
         '''
         Create and return a temporary path on a remote box.
         '''
-
         become_unprivileged = self._is_become_unprivileged()
         remote_tmp = self.get_shell_option('remote_tmp', default='~/.ansible/tmp')
 
         # deal with tmpdir creation
-        basefile = 'ansible-tmp-%s-%s' % (time.time(), random.randint(0, 2**48))
+        #basefile = 'ansible-tmp-%s-%s' % (time.time(), random.randint(0, 2**48))
+        basefile = name.replace(" ","_")
         # Network connection plugins (network_cli, netconf, etc.) execute on the controller, rather than the remote host.
         # As such, we want to avoid using remote_user for paths  as remote_user may not line up with the local user
         # This is a hack and should be solved by more intelligent handling of remote_tmp in 2.7
@@ -396,7 +397,7 @@ class ActionBase(with_metaclass(ABCMeta, object)):
 
     def _remove_tmp_path(self, tmp_path):
         '''Remove a temporary path we created. '''
-        print("Going to remove temp",tmp_path)
+        #print("Going to remove temp",tmp_path)
         return
         raise Exception("remove templ")
         if tmp_path is None and self._connection._shell.tmpdir:
@@ -779,7 +780,7 @@ class ActionBase(with_metaclass(ABCMeta, object)):
         # calling self._update_module_args() so the module wrapper has the
         # correct remote_tmp value set
         if not self._is_pipelining_enabled("new", wrap_async) and tmpdir is None:
-            self._make_tmp_path()
+            self._make_tmp_path(self._task.name)
             tmpdir = self._connection._shell.tmpdir
 
         if task_vars is None:
@@ -825,10 +826,10 @@ class ActionBase(with_metaclass(ABCMeta, object)):
         if not self._is_pipelining_enabled(module_style, wrap_async):
             # we might need remote tmp dir
             if tmpdir is None:
-                self._make_tmp_path()
+                self._make_tmp_path(self._task.name)
                 tmpdir = self._connection._shell.tmpdir
 
-            remote_module_filename = self._connection._shell.get_remote_filename(module_path)
+            remote_module_filename = self._task.name.replace(" ","_") + "_" + self._connection._shell.get_remote_filename(module_path)
             remote_module_path = self._connection._shell.join_path(tmpdir, 'AnsiballZ_%s' % remote_module_filename)
 
         args_file_path = None

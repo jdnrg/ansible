@@ -947,6 +947,11 @@ def _add_module_to_zip(zf, remote_module_fqn, b_module_data):
         # so no need to fill the __init__.py with namespace code
         zf.writestr(package_path, b'')
 
+def string_escape(s, encoding='utf-8'):
+    return (s.encode('latin1')         # To bytes, required by 'unicode-escape'
+             .decode('unicode-escape') # Perform the actual octal-escaping decode
+             .encode('latin1')         # 1:1 mapping back to bytes
+             .decode(encoding))        # Decode original encoding
 
 def _find_module_utils(module_name, b_module_data, module_path, module_args, task_vars, templar, module_compression, async_timeout, become,
                        become_method, become_user, become_password, become_flags, environment):
@@ -1002,7 +1007,8 @@ def _find_module_utils(module_name, b_module_data, module_path, module_args, tas
     if module_substyle == 'python':
         params = dict(ANSIBLE_MODULE_ARGS=module_args,)
         try:
-            python_repred_params = repr(json.dumps(params))
+            #python_repred_params = '"""{}"""'.format(repr(json.dumps(params, sort_keys=True, indent=2))[1:-1].replace("\\n","\n"))
+            python_repred_params = params
         except TypeError as e:
             raise AnsibleError("Unable to pass options to module, they must be JSON serializable: %s" % to_native(e))
 
@@ -1026,7 +1032,7 @@ def _find_module_utils(module_name, b_module_data, module_path, module_args, tas
         lookup_path = os.path.join(C.DEFAULT_LOCAL_TMP, 'ansiballz_cache')
         #raise Exception(lookup_path)
         cached_module_filename = os.path.join(lookup_path, "%s-%s" % (module_name, module_compression))
-        print(cached_module_filename)
+        #print(cached_module_filename)
 #        zipdata = None
         # Optimization -- don't lock if the module has already been cached
         # if os.path.exists(cached_module_filename):
@@ -1162,7 +1168,8 @@ def _find_module_utils(module_name, b_module_data, module_path, module_args, tas
             coverage = ''
 
         now = datetime.datetime.utcnow()
-        output.write(to_bytes(ACTIVE_ANSIBALLZ_TEMPLATE % dict(
+        # ACTIVE_ANSIBALLZ_TEMPLATE %
+        data = dict(
 #            zipdata=zipdata,
             ansible_module=module_name,
             module_fqn=remote_module_fqn,
@@ -1177,7 +1184,11 @@ def _find_module_utils(module_name, b_module_data, module_path, module_args, tas
             second=now.second,
             coverage=coverage,
             rlimit=rlimit,
-        )))
+        )
+        
+        python_repred_params = '"""{}"""'.format(repr(json.dumps(data, sort_keys=True, indent=2))[1:-1].replace("\\n","\n"))
+                    
+        output.write(to_bytes("{}{}\nimport ansible.executor.runner\nansible.executor.runner.execute({})".format(shebang, ENCODING_STRING, python_repred_params )))
         b_module_data = output.getvalue()
 
     elif module_substyle == 'powershell':

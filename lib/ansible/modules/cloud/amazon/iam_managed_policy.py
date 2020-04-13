@@ -322,15 +322,17 @@ def main():
     if state == 'present':
         if p is None:
             # No Policy so just create one
+
             try:
                 rvalue = iam.create_policy(PolicyName=name, Path='/',
                                            PolicyDocument=policy, Description=description)
+                module.exit_json(changed=True, policy=camel_dict_to_snake_dict(rvalue['Policy']))
             except Exception as e:
                 module.fail_json(msg="Couldn't create policy %s: %s" % (name, to_native(e)),
                                  exception=traceback.format_exc(),
                                  **camel_dict_to_snake_dict(e.response))
 
-            module.exit_json(changed=True, policy=camel_dict_to_snake_dict(rvalue['Policy']))
+            
         else:
             policy_version, changed = get_or_create_policy_version(module, iam, p, policy)
             changed = set_if_default(module, iam, p, policy_version, default) or changed

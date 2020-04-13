@@ -322,7 +322,9 @@ def create_or_update_role(connection, module):
     if managed_policies is not None:
         # Get list of current attached managed policies
         current_attached_policies = get_attached_policy_list(connection, module, params['RoleName'])
-        current_attached_policies_arn_list = [policy['PolicyArn'] for policy in current_attached_policies]
+        current_attached_policies_arn_list = []
+        if current_attached_policies:
+            current_attached_policies_arn_list = [policy['PolicyArn'] for policy in current_attached_policies]
 
         # If a single empty list item then all managed policies to be removed
         if len(managed_policies) == 1 and not managed_policies[0] and purge_policies:
@@ -375,6 +377,8 @@ def create_or_update_role(connection, module):
                 connection.add_role_to_instance_profile(InstanceProfileName=params['RoleName'], RoleName=params['RoleName'])
 
     # Check Description update
+
+        
     if not role.get('MadeInCheckMode') and params.get('Description') and role.get('Description') != params['Description']:
         try:
             if not module.check_mode:

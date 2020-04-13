@@ -716,6 +716,11 @@ def main():
     result = {}
     changed = False
 
+    orig_group_list = []
+    orig_user_list = []
+    orig_role_list = []
+    orig_prof_list = []
+
     try:
         orig_group_list = list_all_groups(iam)
 
