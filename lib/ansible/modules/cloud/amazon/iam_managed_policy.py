@@ -172,9 +172,11 @@ def delete_oldest_non_default_version(module, iam, policy):
 
 # This needs to return policy_version, changed
 def get_or_create_policy_version(module, iam, policy, policy_document):
+    versions = []
     try:
         versions = iam.list_policy_versions(PolicyArn=policy['Arn'])['Versions']
     except botocore.exceptions.ClientError as e:
+        print(e)
         module.fail_json(msg="Couldn't list policy versions: %s" % str(e),
                          exception=traceback.format_exc(),
                          **camel_dict_to_snake_dict(e.response))
@@ -315,6 +317,7 @@ def main():
         iam = boto3_conn(module, conn_type='client', resource='iam',
                          region=region, endpoint=ec2_url, **aws_connect_kwargs)
     except (botocore.exceptions.NoCredentialsError, botocore.exceptions.ProfileNotFound) as e:
+        print(e)
         module.fail_json(msg="Can't authorize connection. Check your credentials and profile.",
                          exceptions=traceback.format_exc(), **camel_dict_to_snake_dict(e.response))
 

@@ -304,8 +304,11 @@ def create_or_update_role(connection, module):
                 role['AssumeRolePolicyDocument'] = json.loads(params['AssumeRolePolicyDocument'])
             changed = True
         except ClientError as e:
+            print(e)
             module.fail_json_aws(e, msg="Unable to create role")
+            
         except BotoCoreError as e:
+            print(e)
             module.fail_json_aws(e, msg="Unable to create role")
     else:
         # Check Assumed Policy document
@@ -315,8 +318,10 @@ def create_or_update_role(connection, module):
                     connection.update_assume_role_policy(RoleName=params['RoleName'], PolicyDocument=json.dumps(json.loads(params['AssumeRolePolicyDocument'])))
                 changed = True
             except ClientError as e:
+                print(e)
                 module.fail_json_aws(e, msg="Unable to update assume role policy for role {0}".format(params['RoleName']))
             except BotoCoreError as e:
+                print(e)
                 module.fail_json_aws(e, msg="Unable to update assume role policy for role {0}".format(params['RoleName']))
 
     if managed_policies is not None:
